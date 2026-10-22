@@ -42,8 +42,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="电商行为日志清洗")
     parser.add_argument("--input", required=True, help="原始 CSV 路径或 HDFS 路径")
     parser.add_argument("--output", required=True, help="输出 Parquet 路径")
-    parser.add_argument("--start-ts", type=int, default=None, help="起始时间戳（秒）")
-    parser.add_argument("--end-ts", type=int, default=None, help="结束时间戳（秒）")
+    parser.add_argument(
+        "--start-ts",
+        type=int,
+        default=1511452800,
+        help="起始时间戳（秒），默认 2017-11-24；天池数据集含少量 1905/2036 年的脏时间戳，需过滤",
+    )
+    parser.add_argument(
+        "--end-ts",
+        type=int,
+        default=1517443200,
+        help="结束时间戳（秒），默认 2018-01-01；换数据集时用参数覆盖",
+    )
     parser.add_argument(
         "--shuffle-partitions",
         type=int,
@@ -142,7 +152,13 @@ def main(argv: list[str] | None = None) -> int:
     spark = build_spark(args.shuffle_partitions)
     try:
         raw = read_raw(spark, args.input)
+        raw_cnt = raw.count()
         cleaned = clean(raw, args.start_ts, args.end_ts).cache()
+        clean_cnt = cleaned.count()
+        print(
+            f"[clean] 原始 {raw_cnt:,} 条 → 有效 {clean_cnt:,} 条"
+            f"（丢弃 {raw_cnt - clean_cnt:,}：空值/非法行为/时间窗外的脏数据）"
+        )
         summarize(cleaned)
         (
             cleaned.write.mode("overwrite")

@@ -98,7 +98,11 @@ Write-Host "log   : $logFile"
 Write-Host "starting ..."
 Write-Host ""
 
-& $sparkSubmit --master "local[4]" --conf "spark.sql.shuffle.partitions=8" $script @args2 *> $logFile
+& $sparkSubmit --master "local[4]" `
+    --driver-memory 4g `
+    --conf "spark.sql.shuffle.partitions=8" `
+    --conf "spark.driver.maxResultSize=1g" `
+    $script @args2 *> $logFile
 $code = $LASTEXITCODE
 
 Write-Host ""
@@ -110,9 +114,15 @@ if ($code -eq 0) {
     Write-Host "copying results into the project ..."
     $destParent = Split-Path $dest
     if (-not (Test-Path $destParent)) { New-Item -ItemType Directory -Force -Path $destParent | Out-Null }
-    if (Test-Path $dest) { Remove-Item -Recurse -Force $dest -ErrorAction SilentlyContinue }
+    if (Test-Path $dest) {
+        # 目录本身可能因 ACL 删不掉，先把里面的内容清空
+        Get-ChildItem $dest -Force -ErrorAction SilentlyContinue |
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
     try {
-        Copy-Item -Recurse -Force (Join-Path $outRoot (Split-Path $dest -Leaf)) $dest -ErrorAction Stop
+        # 只复制目录内容，避免出现 ods\ods 这种嵌套
+        Copy-Item -Path (Join-Path $outRoot ((Split-Path $dest -Leaf) + "\*")) -Destination $dest -Recurse -Force -ErrorAction Stop
         Write-Host "[OK] copied to $dest" -ForegroundColor Green
     } catch {
         Write-Host "[WARN] copy failed, results stay in $outRoot" -ForegroundColor Yellow
