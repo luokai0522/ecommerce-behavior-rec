@@ -214,13 +214,19 @@ def main(argv: list[str] | None = None) -> int:
         i_map = index_map(train, "item_id", "iidx").cache()
 
         behaviours = [int(x) for x in args.test_behaviors.split(",") if x.strip()]
+        # 评测口径必须与候选集一致：只保留候选商品集合内的正样本
+        universe = train.select("item_id").distinct()
         test = (
             test_raw.filter(F.col("behavior_type").isin(behaviours))
             .select("user_id", "item_id")
             .distinct()
+            .join(universe, "item_id", "left_semi")
         )
         catalog = i_map.count()
-        print(f"[als] 用户 {u_map.count():,} / 商品 {catalog:,}，正样本 {test.count():,}")
+        print(
+            f"[als] 用户 {u_map.count():,} / 候选商品 {catalog:,}，"
+            f"评测正样本 {test.count():,}"
+        )
 
         print(f"[als] ---- 热门基线 ----")
         evaluate(

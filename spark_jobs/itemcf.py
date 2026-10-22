@@ -229,15 +229,22 @@ def main(argv: list[str] | None = None) -> int:
         n_users = recs.select("user_id").distinct().count()
         print(f"[itemcf] 覆盖用户 {n_users:,}，推荐记录 {recs.count():,}")
 
-        # 测试集正样本：默认只取加购(3)与下单(4)，浏览噪声太大
+        # 测试集正样本：默认只取加购(3)与下单(4)，浏览噪声太大；
+        # 且只保留出现在候选商品集合里的正样本 —— 推荐器根本不可能推出候选集之外的商品，
+        # 用全量商品做分母会把 Recall 稀释成 0（评测口径必须与候选集一致）
         behaviours = [int(x) for x in args.test_behaviors.split(",") if x.strip()]
+        universe = train.select("item_id").distinct()
         test = (
             test_raw.filter(F.col("behavior_type").isin(behaviours))
             .select("user_id", "item_id")
             .distinct()
+            .join(universe, "item_id", "left_semi")
         )
-        catalog = train.select("item_id").distinct().count()
-        print(f"[itemcf] ---- 离线评测（正样本行为={behaviours}）----")
+        catalog = universe.count()
+        print(
+            f"[itemcf] 候选商品 {catalog:,}，评测正样本 {test.count():,}"
+            f"（行为 {behaviours}）"
+        )
         evaluate(recs, test, catalog, args.eval_users, args.top_n, "itemcf")
         evaluate(
             popularity_baseline(train, args.top_n), test, catalog, args.eval_users, args.top_n,
