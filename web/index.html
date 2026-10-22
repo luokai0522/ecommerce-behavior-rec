@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>电商用户行为分析与个性化推荐 · 可视化大屏</title>
+<style>
+  :root {
+    --bg: #0d1421;
+    --panel: #16203200;
+    --card: #162032;
+    --line: #24304a;
+    --text: #e8eefc;
+    --muted: #8ea0c0;
+    --accent: #4e8cff;
+    --green: #38d39f;
+    --amber: #f2b544;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 50% -10%, #1b2a45 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 20px 26px 32px;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+  }
+  h1 { font-size: 22px; margin: 0; letter-spacing: 1px; font-weight: 600; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .kpi-label { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .kpi-value { font-size: 26px; font-weight: 700; color: var(--accent); }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.amber { color: var(--amber); }
+  .kpi-unit { font-size: 12px; color: var(--muted); margin-left: 4px; font-weight: 400; }
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  .chart { height: 300px; }
+  .panel-title { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .query { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+  input {
+    background: #0f1828; border: 1px solid var(--line); color: var(--text);
+    padding: 9px 12px; border-radius: 8px; width: 180px; font-size: 14px; outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  button {
+    background: var(--accent); color: #fff; border: 0; padding: 9px 18px;
+    border-radius: 8px; font-size: 14px; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.1); }
+  .result { display: grid; grid-template-columns: 320px 1fr; gap: 14px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .tag {
+    background: #1d2a44; border: 1px solid #2b3b5c; border-radius: 999px;
+    padding: 5px 12px; font-size: 12px;
+  }
+  .tag b { color: var(--accent); font-weight: 600; }
+  .recs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .rec {
+    background: #14213a; border: 1px solid #27395c; border-radius: 8px;
+    padding: 8px 12px; font-size: 12px; min-width: 96px;
+  }
+  .rec .rank { color: var(--amber); font-weight: 700; margin-right: 6px; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .err { color: #ff7a7a; font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>电商用户行为分析与<span>个性化推荐</span>系统</h1>
+  <div class="sub">离线 Spark 计算 · 在线 Flask 服务 · ECharts 可视化</div>
+</header>
+
+<section class="kpis">
+  <div class="card">
+    <div class="kpi-label">推荐覆盖用户</div>
+    <div class="kpi-value" id="kpi-users">-</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">推荐记录数</div>
+    <div class="kpi-value green" id="kpi-recs">-</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">画像标签条数</div>
+    <div class="kpi-value amber" id="kpi-tags">-</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">服务状态</div>
+    <div class="kpi-value green" id="kpi-status">-</div>
+  </div>
+</section>
+
+<section class="charts">
+  <div class="card">
+    <div class="panel-title">用户活跃度分布</div>
+    <div class="chart" id="chart-activity"></div>
+  </div>
+  <div class="card">
+    <div class="panel-title">品类偏好 Top 10</div>
+    <div class="chart" id="chart-category"></div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="panel-title">用户画像与个性化推荐</div>
+  <div class="query">
+    <input id="uid" type="number" value="123" placeholder="输入 user_id" />
+    <button onclick="queryUser()">查询</button>
+    <span class="hint">试试 123、4567，或 999999 查看冷启动兜底</span>
+  </div>
+  <div class="result">
+    <div>
+      <div class="panel-title">画像标签</div>
+      <div class="tags" id="tags"><span class="hint">尚未查询</span></div>
+    </div>
+    <div>
+      <div class="panel-title">Top 10 推荐商品</div>
+      <div class="recs" id="recs"><span class="hint">尚未查询</span></div>
+    </div>
+  </div>
+  <div class="err" id="err"></div>
+</section>
+
+<script src="https://cdn.staticfile.org/echarts/5.4.3/echarts.min.js"></script>
+<script>
+if (!window.echarts) {
+  document.write('<script src="https://unpkg.com/echarts@5.4.3/dist/echarts.min.js"><\/script>');
+}
+</script>
+<script>
+const fmt = (n) => n.toLocaleString("zh-CN");
+let chartActivity, chartCategory;
+
+function initCharts() {
+  chartActivity = echarts.init(document.getElementById("chart-activity"), null, { renderer: "canvas" });
+  chartCategory = echarts.init(document.getElementById("chart-category"), null, { renderer: "canvas" });
+  window.addEventListener("resize", () => {
+    chartActivity.resize();
+    chartCategory.resize();
+  });
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch("/api/stats");
+    const data = await res.json();
+    document.getElementById("kpi-users").textContent = fmt(data.users_with_recs);
+    document.getElementById("kpi-recs").textContent = fmt(data.total_rec_items);
+    document.getElementById("kpi-tags").textContent = fmt(data.tag_records);
+    document.getElementById("kpi-status").textContent = "在线";
+
+    const act = data.tag_distribution["活跃度"] || {};
+    chartActivity.setOption({
+      grid: { left: 40, right: 20, top: 20, bottom: 30 },
+      tooltip: { trigger: "axis" },
+      xAxis: {
+        type: "category",
+        data: Object.keys(act),
+        axisLine: { lineStyle: { color: "#2b3b5c" } },
+        axisLabel: { color: "#8ea0c0" },
+      },
+      yAxis: {
+        type: "value",
+        splitLine: { lineStyle: { color: "#1e2940" } },
+        axisLabel: { color: "#8ea0c0" },
+      },
+      series: [{
+        type: "bar",
+        data: Object.values(act),
+        barWidth: "46%",
+        itemStyle: {
+          borderRadius: [4, 4, 0, 0],
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "#4e8cff" },
+            { offset: 1, color: "#1f3f7a" },
+          ]),
+        },
+        label: { show: true, position: "top", color: "#c9d6ee", fontSize: 11 },
+      }],
+    });
+
+    const cat = data.tag_distribution["品类偏好"] || {};
+    const top = Object.entries(cat).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    chartCategory.setOption({
+      tooltip: { trigger: "item", formatter: "{b}: {c} 人 ({d}%)" },
+      legend: { bottom: 0, textStyle: { color: "#8ea0c0", fontSize: 11 } },
+      series: [{
+        type: "pie",
+        radius: ["40%", "66%"],
+        center: ["50%", "44%"],
+        itemStyle: { borderColor: "#162032", borderWidth: 2 },
+        label: { color: "#c9d6ee", fontSize: 11 },
+        data: top.map(([name, value]) => ({ name, value })),
+      }],
+    });
+  } catch (e) {
+    document.getElementById("kpi-status").textContent = "离线";
+    document.getElementById("err").textContent = "统计接口不可用：" + e.message;
+  }
+}
+
+async function queryUser() {
+  const uid = document.getElementById("uid").value || "123";
+  const errEl = document.getElementById("err");
+  errEl.textContent = "";
+  try {
+    const [recRes, tagRes] = await Promise.all([
+      fetch(`/api/recommend/${uid}?top=10`),
+      fetch(`/api/profile/${uid}`),
+    ]);
+
+    if (recRes.status === 503) {
+      const d = await recRes.json();
+      errEl.textContent = d.detail || "数据未就绪";
+      return;
+    }
+
+    const rec = await recRes.json();
+    const tag = await tagRes.json();
+
+    document.getElementById("recs").innerHTML = rec.items.length
+      ? rec.items.map((x) => `<div class="rec"><span class="rank">#${x.rank}</span>商品 ${x.item_id}</div>`).join("")
+      : '<span class="hint">无推荐结果</span>';
+
+    document.getElementById("tags").innerHTML = tag.found
+      ? tag.tags.map((t) => `<span class="tag"><b>${t.type}</b> ${t.value}</span>`).join("")
+      : '<span class="hint">该用户无画像标签（新用户）</span>';
+
+    if (rec.cold_start) {
+      errEl.textContent = "该用户无历史行为，已回退到热门榜兜底（冷启动策略）";
+    }
+  } catch (e) {
+    errEl.textContent = "查询失败：" + e.message;
+  }
+}
+
+initCharts();
+loadStats();
+queryUser();
+</script>
+</body>
+</html>

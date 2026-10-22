@@ -72,6 +72,32 @@ spark-submit spark_jobs/clean.py \
 python server/app.py
 ```
 
+### Windows 一键运行
+
+清洗、画像、召回、ALS 都可以用同一个脚本跑（输出先写到临时目录，成功后再拷回项目）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job clean     # CSV -> 分区 Parquet
+powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job profile   # 用户画像标签
+powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job itemcf    # ItemCF 召回 + 评测
+powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job als       # ALS 召回 + 参数实验
+```
+
+### 启动推荐服务
+
+```powershell
+python -m pip install flask pandas pyarrow
+powershell -ExecutionPolicy Bypass -File .\run_server.ps1
+```
+
+```bash
+curl http://127.0.0.1:8000/api/recommend/123?top=10
+curl http://127.0.0.1:8000/api/profile/123
+curl http://127.0.0.1:8000/api/stats
+```
+
+服务只读离线预计算的结果，不做在线计算，对应论文 4.1 节的「离线/在线分离」架构。
+
 ## 实验结果
 
 > 数据：合成样本 12 万条行为记录、19,947 名用户、5,000 件商品（9 天，含潜在品类偏好）。
@@ -127,7 +153,7 @@ python server/app.py
 - [x] 用户画像标签计算（活跃度 / 品类偏好 / 购买倾向 / 生命周期）
 - [x] ItemCF 召回与离线评测（Recall@10 / NDCG@10 / Coverage）
 - [x] ALS 训练与参数实验（rank 10/50/100，最优 rank=50）
-- [ ] Flask 推荐接口
+- [x] Flask 推荐接口（推荐 / 画像 / 统计）
 - [ ] Vue3 管理端与可视化大屏
 - [ ] 性能测试与论文数据替换
 
@@ -137,7 +163,7 @@ python server/app.py
 
 ## 相关文档
 
-- 系统设计说明：`docs/`
+- [系统实现与实验报告](docs/系统实现与实验报告.md)：章节对照、算法口径、评测结果、工程问题记录
 - 毕业设计论文：`docs/thesis.pdf`（定稿后补充）
 
 ## License
