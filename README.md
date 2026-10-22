@@ -13,6 +13,13 @@
 - **离线评测**：Precision / Recall / Coverage / Diversity 四项指标，支持算法与参数对比
 - **服务与展示**：Flask RESTful 接口 + Vue3 管理端 + ECharts 可视化大屏
 
+## 界面预览
+
+![可视化大屏](screenshots/dashboard_preview.png)
+
+> 顶部：推荐覆盖用户 / 推荐记录数 / 画像标签条数 / 服务状态；中部：用户活跃度分布、品类偏好 Top 10；
+> 下部：热门基线与 ItemCF、ALS（10 / 50 / 100 维）的 Recall@10 与 NDCG@10 对比。
+
 ## 技术栈
 
 | 层次 | 技术 |

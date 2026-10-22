@@ -50,7 +50,9 @@
   .kpi-unit { font-size: 12px; color: var(--muted); margin-left: 4px; font-weight: 400; }
   .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
   .chart { height: 300px; }
+  .chart-wide { height: 240px; }
   .panel-title { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .panel-title small { color: #5f7599; font-size: 11px; margin-left: 8px; }
   .query { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
   input {
     background: #0f1828; border: 1px solid var(--line); color: var(--text);
@@ -115,6 +117,11 @@
   </div>
 </section>
 
+<section class="card" style="margin-bottom:16px">
+  <div class="panel-title">算法效果对比（Recall@10）<small>来自离线评测 · 合成样本 12 万条</small></div>
+  <div class="chart-wide" id="chart-metrics"></div>
+</section>
+
 <section class="card">
   <div class="panel-title">用户画像与个性化推荐</div>
   <div class="query">
@@ -143,14 +150,77 @@ if (!window.echarts) {
 </script>
 <script>
 const fmt = (n) => n.toLocaleString("zh-CN");
-let chartActivity, chartCategory;
+let chartActivity, chartCategory, chartMetrics;
 
 function initCharts() {
   chartActivity = echarts.init(document.getElementById("chart-activity"), null, { renderer: "canvas" });
   chartCategory = echarts.init(document.getElementById("chart-category"), null, { renderer: "canvas" });
+  chartMetrics = echarts.init(document.getElementById("chart-metrics"), null, { renderer: "canvas" });
   window.addEventListener("resize", () => {
     chartActivity.resize();
     chartCategory.resize();
+    chartMetrics.resize();
+  });
+}
+
+// 离线评测实测值（run_job.ps1 -Job itemcf / als 的输出）
+const METRICS = [
+  { name: "热门榜基线", recall: 0.0038, ndcg: 0.0025 },
+  { name: "ItemCF", recall: 0.0267, ndcg: 0.0121 },
+  { name: "ALS rank=10", recall: 0.0434, ndcg: 0.0191 },
+  { name: "ALS rank=50", recall: 0.0539, ndcg: 0.0231 },
+  { name: "ALS rank=100", recall: 0.0506, ndcg: 0.0216 },
+];
+
+function renderMetrics() {
+  chartMetrics.setOption({
+    grid: { left: 60, right: 30, top: 30, bottom: 30 },
+    tooltip: {
+      trigger: "axis",
+      valueFormatter: (v) => Number(v).toFixed(4),
+    },
+    legend: { right: 10, top: 0, textStyle: { color: "#8ea0c0", fontSize: 11 } },
+    xAxis: {
+      type: "category",
+      data: METRICS.map((m) => m.name),
+      axisLine: { lineStyle: { color: "#2b3b5c" } },
+      axisLabel: { color: "#8ea0c0" },
+    },
+    yAxis: {
+      type: "value",
+      splitLine: { lineStyle: { color: "#1e2940" } },
+      axisLabel: { color: "#8ea0c0" },
+    },
+    series: [
+      {
+        name: "Recall@10",
+        type: "bar",
+        data: METRICS.map((m) => m.recall),
+        barWidth: "26%",
+        itemStyle: {
+          borderRadius: [4, 4, 0, 0],
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "#4e8cff" },
+            { offset: 1, color: "#1f3f7a" },
+          ]),
+        },
+        label: { show: true, position: "top", color: "#c9d6ee", fontSize: 10,
+                 formatter: (p) => p.value.toFixed(4) },
+      },
+      {
+        name: "NDCG@10",
+        type: "bar",
+        data: METRICS.map((m) => m.ndcg),
+        barWidth: "26%",
+        itemStyle: {
+          borderRadius: [4, 4, 0, 0],
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "#38d39f" },
+            { offset: 1, color: "#146b52" },
+          ]),
+        },
+      },
+    ],
   });
 }
 
@@ -163,13 +233,17 @@ async function loadStats() {
     document.getElementById("kpi-tags").textContent = fmt(data.tag_records);
     document.getElementById("kpi-status").textContent = "在线";
 
-    const act = data.tag_distribution["活跃度"] || {};
+    const actRaw = data.tag_distribution["活跃度"] || {};
+    const ACT_ORDER = ["高活跃", "中活跃", "低活跃", "沉默"];
+    const actKeys = ACT_ORDER.filter((k) => k in actRaw)
+      .concat(Object.keys(actRaw).filter((k) => !ACT_ORDER.includes(k)));
+    const act = actKeys.map((k) => [k, actRaw[k]]);
     chartActivity.setOption({
       grid: { left: 40, right: 20, top: 20, bottom: 30 },
       tooltip: { trigger: "axis" },
       xAxis: {
         type: "category",
-        data: Object.keys(act),
+        data: act.map((x) => x[0]),
         axisLine: { lineStyle: { color: "#2b3b5c" } },
         axisLabel: { color: "#8ea0c0" },
       },
@@ -180,7 +254,7 @@ async function loadStats() {
       },
       series: [{
         type: "bar",
-        data: Object.values(act),
+        data: act.map((x) => x[1]),
         barWidth: "46%",
         itemStyle: {
           borderRadius: [4, 4, 0, 0],
@@ -249,6 +323,7 @@ async function queryUser() {
 }
 
 initCharts();
+renderMetrics();
 loadStats();
 queryUser();
 </script>
