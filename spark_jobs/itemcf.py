@@ -34,6 +34,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--eval-users", type=int, default=2000, help="评测抽样用户数")
     p.add_argument("--test-behaviors", default="3,4", help="作为正样本的行为类型，逗号分隔")
     p.add_argument("--max-user-items", type=int, default=50, help="每用户参与计算的最大商品数")
+    p.add_argument("--min-user", type=int, default=5, help="用户最少交互数，低于此值不参与训练")
+    p.add_argument("--min-item", type=int, default=10, help="商品最少被交互次数，低于此值不参与训练")
     p.add_argument("--shuffle-partitions", type=int, default=8)
     return p.parse_args(argv)
 
@@ -56,6 +58,24 @@ def weighted_interactions(df: DataFrame) -> DataFrame:
         .groupBy("user_id", "item_id")
         .agg(F.max("w").alias("w"))
     )
+
+
+def filter_interactions(train: DataFrame, min_user: int, min_item: int) -> DataFrame:
+    """过滤冷启动用户与长尾商品，保证与 ALS 使用同一份训练数据。"""
+    uc = (
+        train.groupBy("user_id")
+        .agg(F.count("*").alias("c"))
+        .filter(F.col("c") >= min_user)
+        .select("user_id")
+    )
+    train = train.join(uc, "user_id", "left_semi")
+    ic = (
+        train.groupBy("item_id")
+        .agg(F.count("*").alias("c"))
+        .filter(F.col("c") >= min_item)
+        .select("item_id")
+    )
+    return train.join(ic, "item_id", "left_semi")
 
 
 def split_by_time(df: DataFrame, test_days: int) -> tuple[DataFrame, DataFrame, str]:
@@ -185,7 +205,13 @@ def main(argv: list[str] | None = None) -> int:
         train_raw, test_raw, boundary = split_by_time(df, args.test_days)
         print(f"[itemcf] 切分点 {boundary}，训练集 {train_raw.count():,}，测试集 {test_raw.count():,}")
 
-        train = weighted_interactions(train_raw).cache()
+        train = weighted_interactions(train_raw)
+        before = train.count()
+        train = filter_interactions(train, args.min_user, args.min_item).cache()
+        print(
+            f"[itemcf] 过滤冷启动：交互 {before:,} -> {train.count():,}"
+            f"（用户>={args.min_user} 次，商品>={args.min_item} 次）"
+        )
         # 控制每用户参与计算的商品数
         rank = Window.partitionBy("user_id").orderBy(F.desc("w"), F.asc("item_id"))
         train = (

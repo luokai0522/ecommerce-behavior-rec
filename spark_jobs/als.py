@@ -39,6 +39,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--test-days", type=int, default=2)
     p.add_argument("--test-behaviors", default="3,4")
     p.add_argument("--eval-users", type=int, default=2000)
+    p.add_argument("--min-user", type=int, default=5, help="用户最少交互数，低于此值不参与训练")
+    p.add_argument("--min-item", type=int, default=10, help="商品最少被交互次数，低于此值不参与训练")
     p.add_argument("--shuffle-partitions", type=int, default=8)
     return p.parse_args(argv)
 
@@ -68,6 +70,24 @@ def split_by_time(df: DataFrame, test_days: int):
         raise SystemExit(f"日期数不足：{len(days)} 天")
     boundary = days[-test_days]
     return df.filter(F.col("dt") < boundary), df.filter(F.col("dt") >= boundary), boundary
+
+
+def filter_interactions(train: DataFrame, min_user: int, min_item: int) -> DataFrame:
+    """过滤冷启动用户与长尾商品：行为太少的用户/商品无法学到有效隐向量。"""
+    uc = (
+        train.groupBy("user_id")
+        .agg(F.count("*").alias("c"))
+        .filter(F.col("c") >= min_user)
+        .select("user_id")
+    )
+    train = train.join(uc, "user_id", "left_semi")
+    ic = (
+        train.groupBy("item_id")
+        .agg(F.count("*").alias("c"))
+        .filter(F.col("c") >= min_item)
+        .select("item_id")
+    )
+    return train.join(ic, "item_id", "left_semi")
 
 
 def index_map(df: DataFrame, col: str, idx_col: str) -> DataFrame:
@@ -181,7 +201,15 @@ def main(argv: list[str] | None = None) -> int:
         train_raw, test_raw, boundary = split_by_time(df, args.test_days)
         print(f"[als] 切分点 {boundary}，训练集 {train_raw.count():,}，测试集 {test_raw.count():,}")
 
-        train = weighted_interactions(train_raw).cache()
+        train = weighted_interactions(train_raw)
+        before = train.count()
+        train = filter_interactions(train, args.min_user, args.min_item).cache()
+        after = train.count()
+        print(
+            f"[als] 过滤冷启动：交互 {before:,} -> {after:,}"
+            f"（用户>={args.min_user} 次，商品>={args.min_item} 次）"
+        )
+
         u_map = index_map(train, "user_id", "uidx").cache()
         i_map = index_map(train, "item_id", "iidx").cache()
 
