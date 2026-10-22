@@ -44,7 +44,7 @@ def _require(path: Path) -> None:
     if not path.exists():
         raise FileNotFoundError(
             f"数据目录不存在: {path}\n"
-            f"请先运行离线作业：powershell -ExecutionPolicy Bypass -File run_job.ps1 -Job als"
+            f"请先运行离线作业：run_job.ps1 -Job als（推荐）或 -Job profile（画像标签）"
         )
 
 

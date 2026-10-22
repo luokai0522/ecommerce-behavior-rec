@@ -66,19 +66,20 @@ flowchart LR
 # 1. 安装依赖
 pip install -r requirements.txt
 
-# 2. 初始化数据库
-mysql -u root -p < sql/mysql_ddl.sql
-hive -f sql/hive_ddl.sql
+# 2. （可选）初始化数据仓库 / 业务库
+#    只有需要跑 Hive 或把结果推进 MySQL 时才要执行；本地 Parquet 流程不需要
+# mysql -u root -p < sql/mysql_ddl.sql
+# hive -f sql/hive_ddl.sql
 
 # 3. 准备数据（见 data/README.md，不要将原始数据提交到仓库）
-#    将行为日志放入 data/raw/
+#    将 UserBehavior.csv 放入 data/raw/
 
-# 4. 提交清洗作业
-spark-submit spark_jobs/clean.py \
-    --input data/raw/user_behavior.csv \
-    --output /warehouse/ecommerce/ods/behavior_log
+# 4. 提交清洗作业（本地可直接用 run_job.ps1 -Job clean）
+spark-submit --master "local[4]" spark_jobs/clean.py \
+    --input data/raw/UserBehavior.csv \
+    --output data/processed/ods
 
-# 5. 启动服务
+# 5. 启动服务（等价于 run_server.ps1）
 python server/app.py
 ```
 
@@ -115,7 +116,7 @@ curl http://127.0.0.1:8000/api/stats
 
 > 数据：阿里天池 UserBehavior（淘宝用户行为）抽样 200 万条，覆盖 2017-11-24 ~ 2017-12-04（本地时间）。
 > 过滤交互 <5 次的用户与曝光 <10 次的商品后：交互 43,364 条、用户 30,008、候选商品 2,669。
-> 按时间切分：前 8 天训练、后 2 天测试（切分点 2017-12-03）；正样本取测试期的加购与下单行为；N=10。
+> 按时间切分：前 9 天训练、后 2 天测试（切分点 2017-12-03）；正样本取测试期的加购与下单行为；N=10。
 
 | 算法 | Recall@10 | NDCG@10 | Coverage |
 |---|---|---|---|
@@ -172,7 +173,7 @@ rank=100 起覆盖率已达 100%，继续增大维度只提升排序质量、不
 ├── tools/             # 数据集抽样工具
 ├── server/            # Flask 服务层
 ├── web/               # ECharts 大屏（单页）
-├── data/              # 数据说明与小样本（原始数据不入库）
+├── data/              # 数据说明与合成样本（原始数据不入库）
 ├── docs/              # 系统实现与实验报告
 ├── screenshots/       # 系统截图
 ├── run_job.ps1        # 一键运行离线作业
@@ -196,7 +197,9 @@ rank=100 起覆盖率已达 100%，继续增大维度只提升排序质量、不
 
 ## 数据说明
 
-数据来源、字段定义与获取方式见 [data/README.md](data/README.md)。**原始数据集不纳入版本管理**，仓库仅保留小样本用于跑通流程。
+数据来源、字段定义与获取方式见 [data/README.md](data/README.md)。**原始数据集不纳入版本管理**；
+仓库里只有一个**合成样本**（`data/sample/sample_100k.csv`，12 万条，用于无真实数据时跑通流程），
+它不能用来产出论文中的实验数值。
 
 ## 相关文档
 

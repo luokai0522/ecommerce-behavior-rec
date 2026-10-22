@@ -6,6 +6,9 @@
 #
 # Requires: flask, pandas, pyarrow
 #   python -m pip install flask pandas pyarrow -i https://pypi.tuna.tsinghua.edu.cn/simple
+#
+# NOTE: $py below is a machine-specific absolute path; change it if your
+#       Python lives elsewhere (or replace with just "python" if it is on PATH).
 
 param([int]$Port = 8000)
 
