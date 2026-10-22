@@ -115,9 +115,12 @@ if ($code -eq 0) {
     $destParent = Split-Path $dest
     if (-not (Test-Path $destParent)) { New-Item -ItemType Directory -Force -Path $destParent | Out-Null }
     if (Test-Path $dest) {
-        # 目录本身可能因 ACL 删不掉，先把里面的内容清空
-        Get-ChildItem $dest -Force -ErrorAction SilentlyContinue |
-            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        # 目录本身可能因 ACL 删不掉，先把里面的内容清空；
+        # 注意必须先判断元素个数，否则空目录会让 Remove-Item 等待输入
+        $old = @(Get-ChildItem $dest -Force -ErrorAction SilentlyContinue)
+        if ($old.Count -gt 0) {
+            $old | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
     New-Item -ItemType Directory -Force -Path $dest | Out-Null
     try {

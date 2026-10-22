@@ -51,8 +51,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--end-ts",
         type=int,
-        default=1517443200,
-        help="结束时间戳（秒），默认 2018-01-01；换数据集时用参数覆盖",
+        default=1512345600,
+        help="结束时间戳（秒），默认 2017-12-04；天池数据 12-04 之后只剩零星脏数据，需截掉",
     )
     parser.add_argument(
         "--shuffle-partitions",
