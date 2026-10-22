@@ -2,14 +2,15 @@
 
 维度与论文 4.4 节对应：
     基础属性    —— 需要用户维表（--user-dim），缺省跳过
-    活跃度      —— 按行为次数分位切分
+    活跃度      —— 按行为次数固定阈值分档（≥5 高 / 3–4 中 / 2 低 / 1 沉默；
+                   不用分位切分，稀疏数据下分位数会退化，详见 tag_activity）
     品类偏好    —— 加权行为最多的品类及其占比
     购买倾向    —— 下单/加购在全部行为中的占比
     价格敏感度  —— 需要商品维表的价格字段（--item-dim），缺省跳过
     生命周期    —— 首次/末次行为跨度 + 距今未活跃天数
 
 用法：
-    spark-submit spark_jobs/profile.py \
+    spark-submit spark_jobs/user_profile.py \
         --input  data/processed/ods \
         --output data/processed/user_tag \
         [--item-dim data/raw/item.csv] [--user-dim data/raw/user.csv]
