@@ -149,12 +149,13 @@ rank=100 起覆盖率已达 100%，继续增大维度只提升排序质量、不
 
 | 接口 | 并发 | 吞吐 | P50 | P95 |
 |---|---|---|---|---|
-| `/api/recommend/{id}?top=10` | 20 | 721 req/s | 27.1 ms | 30.7 ms |
-| `/api/stats`（优化前） | 10 | 2.0 req/s | 5052 ms | 5738 ms |
-| `/api/stats`（加缓存后） | 10 | 426 req/s | 22.8 ms | 30.0 ms |
+| `/api/recommend/{id}?top=10` | 20 | 731 req/s | 27.0 ms | 28.9 ms |
+| `/api/stats`（优化前） | 10 | 2.0 req/s | 4923 ms | 5706 ms |
+| `/api/stats`（加缓存，冷启动 1 次） | 1 | — | 775 ms | — |
+| `/api/stats`（加缓存，命中） | 10 | 270 req/s | 36.4 ms | 41.5 ms |
 
-`/api/stats` 原本每次请求都重算 333 万条标签的分布，改成首次计算后缓存，P95 从 5.7 秒降到 30 毫秒。
-压测脚本：`python tools/bench.py --path "/api/recommend/41?top=10" --concurrency 20`。
+`/api/stats` 原本每次请求都重算 333 万条标签的分布，改成首次计算后缓存，单请求从约 5 秒降到 13 毫秒。
+压测脚本：`python tools/bench.py --path "/api/stats" --concurrency 10`。
 
 ## 目录结构
 
