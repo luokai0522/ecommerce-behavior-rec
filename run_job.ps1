@@ -2,6 +2,7 @@
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job clean
+#   powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job clean -DataFile data\raw\sample_2m.csv
 #   powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job profile
 #
 # Notes:
@@ -9,7 +10,10 @@
 #    results are copied back to data\processed\ afterwards.
 #  * All paths below are machine-specific.
 
-param([string]$Job = "clean")
+param(
+    [string]$Job = "clean",
+    [string]$DataFile = ""
+)
 
 $ErrorActionPreference = "Continue"
 try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch {}
@@ -44,10 +48,19 @@ if (-not $outRoot) { Write-Host "[ERROR] no writable output dir" -ForegroundColo
 
 switch ($Job) {
     "clean" {
-        $script  = Join-Path $root "spark_jobs\clean.py"
-        $args2   = @("--input", (Join-Path $root "data\sample\sample_100k.csv"),
-                     "--output", (Join-Path $outRoot "ods"))
-        $dest    = Join-Path $root "data\processed\ods"
+        $script = Join-Path $root "spark_jobs\clean.py"
+        if ($DataFile) {
+            $src = if (Test-Path $DataFile) { (Resolve-Path $DataFile).Path } else { Join-Path $root $DataFile }
+        } else {
+            $src = Join-Path $root "data\sample\sample_100k.csv"
+        }
+        if (-not (Test-Path $src)) {
+            Write-Host "[ERROR] input not found: $src" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "data  : $src"
+        $args2 = @("--input", $src, "--output", (Join-Path $outRoot "ods"))
+        $dest  = Join-Path $root "data\processed\ods"
     }
     "profile" {
         $script  = Join-Path $root "spark_jobs\user_profile.py"
