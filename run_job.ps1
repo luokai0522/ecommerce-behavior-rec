@@ -14,7 +14,7 @@
 param(
     [string]$Job = "clean",
     [string]$DataFile = "",
-    [string]$Ranks = "10,50,100"
+    [string]$Ranks = "10,50,100,200"
 )
 
 $ErrorActionPreference = "Continue"
