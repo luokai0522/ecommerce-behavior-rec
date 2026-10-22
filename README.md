@@ -152,12 +152,12 @@ rank=100 起覆盖率已达 100%，继续增大维度只提升排序质量、不
 
 | 接口 | 并发 | 吞吐 | P50 | P95 |
 |---|---|---|---|---|
-| `/api/recommend/{id}?top=10` | 20 | 731 req/s | 27.0 ms | 28.9 ms |
+| `/api/recommend/{id}?top=10` | 20 | 864 req/s | 22.7 ms | 25.2 ms |
 | `/api/profile/{id}`（优化前） | 10 | 70 req/s | 139.6 ms | 164.4 ms |
-| `/api/profile/{id}`（加索引后） | 10 | 449 req/s | 21.0 ms | 26.5 ms |
+| `/api/profile/{id}`（加索引后） | 10 | 444 req/s | 21.8 ms | 30.4 ms |
 | `/api/stats`（优化前） | 10 | 2.0 req/s | 4923 ms | 5706 ms |
 | `/api/stats`（加缓存，冷启动 1 次） | 1 | — | 775 ms | — |
-| `/api/stats`（加缓存，命中） | 10 | 270 req/s | 36.4 ms | 41.5 ms |
+| `/api/stats`（加缓存，命中） | 10 | 381 req/s | 24.3 ms | 40.3 ms |
 
 两处优化：`/api/stats` 每次重算 333 万条标签的分布，改为首次计算后缓存（单请求 5 秒 → 13 毫秒）；
 `/api/profile` 改为按 user_id 建索引后哈希查找（P95 164 毫秒 → 26 毫秒）。
