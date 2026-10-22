@@ -185,7 +185,7 @@ rank=100 起覆盖率已达 100%，继续增大维度只提升排序质量、不
 - [x] Flask 推荐接口（推荐 / 画像 / 统计）
 - [x] ECharts 可视化大屏
 - [x] 补跑 ALS rank=200，维度收益边际递减
-- [ ] 结果落 MySQL（建表脚本已就绪）
+- [ ] 结果落 MySQL（`tools/export_to_mysql.py` 已实现并通过 dry-run，实跑需本地 MySQL 实例）
 - [x] 接口性能压测（`tools/bench.py`，统计接口加缓存后 P95 30ms）
 
 ## 数据说明
