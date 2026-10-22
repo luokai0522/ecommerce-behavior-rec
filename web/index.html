@@ -125,9 +125,9 @@
 <section class="card">
   <div class="panel-title">用户画像与个性化推荐</div>
   <div class="query">
-    <input id="uid" type="number" value="123" placeholder="输入 user_id" />
+    <input id="uid" type="number" value="41" placeholder="输入 user_id" />
     <button onclick="queryUser()">查询</button>
-    <span class="hint">试试 123、4567，或 999999 查看冷启动兜底</span>
+    <span class="hint">试试 41（高活跃·高意向），或 999999 查看冷启动兜底</span>
   </div>
   <div class="result">
     <div>
@@ -250,7 +250,10 @@ async function loadStats() {
       yAxis: {
         type: "value",
         splitLine: { lineStyle: { color: "#1e2940" } },
-        axisLabel: { color: "#8ea0c0" },
+        axisLabel: {
+          color: "#8ea0c0",
+          formatter: (v) => (v >= 10000 ? v / 10000 + "万" : v),
+        },
       },
       series: [{
         type: "bar",
