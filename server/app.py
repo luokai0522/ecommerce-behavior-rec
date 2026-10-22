@@ -118,11 +118,13 @@ def index():
 
 @app.get("/health")
 def health():
+    """健康检查。features 用于确认进程是否是最新代码（排查"重启后仍是旧进程"的问题）。"""
     return jsonify(
         {
             "status": "ok",
             "recs_ready": RECS_DIR.exists(),
             "tags_ready": TAGS_DIR.exists(),
+            "features": ["recs_cache", "tag_index", "stats_cache", "utf8_header"],
         }
     )
 
