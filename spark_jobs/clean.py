@@ -45,18 +45,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--start-ts", type=int, default=None, help="起始时间戳（秒）")
     parser.add_argument("--end-ts", type=int, default=None, help="结束时间戳（秒）")
     parser.add_argument(
-        "--shuffle-partitions", type=int, default=200, help="shuffle 分区数"
+        "--shuffle-partitions",
+        type=int,
+        default=8,
+        help="shuffle 分区数（本地模式用小值；集群上可调到 200）",
     )
     return parser.parse_args(argv)
 
 
 def build_spark(shuffle_partitions: int) -> SparkSession:
-    return (
+    spark = (
         SparkSession.builder.appName("ecommerce-behavior-clean")
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.sql.parquet.compression.codec", "snappy")
         .getOrCreate()
     )
+    # 本地模式下调低日志级别，否则一个作业能刷出几十 MB 的 INFO 日志
+    spark.sparkContext.setLogLevel("WARN")
+    return spark
 
 
 def read_raw(spark: SparkSession, path: str) -> DataFrame:
