@@ -6,12 +6,12 @@
 
 ## 功能特性
 
-- **数据链路**：原始日志落 HDFS，PySpark 完成清洗与特征工程，按日期分区写入 Hive 明细表
-- **用户画像**：基础属性、活跃度、品类偏好、价格敏感度、生命周期 5 个维度标签
+- **数据链路**：PySpark 完成清洗与特征工程，按日期分区写 Parquet（设计上支持 HDFS / Hive，本地以本地文件系统运行）
+- **用户画像**：活跃度、品类偏好、购买倾向、生命周期 4 个维度标签（性别/年龄/价格敏感度在提供维表时启用）
 - **统计分析**：PV/UV、品类排行、转化漏斗、复购率
-- **个性化推荐**：ItemCF 与 ALS（矩阵分解）双算法召回，冷启动兜底与多样性重排
-- **离线评测**：Precision / Recall / Coverage / Diversity 四项指标，支持算法与参数对比
-- **服务与展示**：Flask RESTful 接口 + Vue3 管理端 + ECharts 可视化大屏
+- **个性化推荐**：ItemCF 与 ALS（矩阵分解）双算法召回，新用户走热门榜兜底
+- **离线评测**：Recall@10 / NDCG@10 / Coverage 三项指标，支持算法与隐因子维度对比
+- **服务与展示**：Flask RESTful 接口 + ECharts 可视化大屏
 
 ## 界面预览
 
@@ -26,38 +26,39 @@
 
 | 层次 | 技术 |
 |---|---|
-| 存储 | Hadoop HDFS、Hive、MySQL、Redis |
-| 计算 | Spark 3.5 / PySpark |
-| 建模 | pandas、NumPy、scikit-learn、implicit（ALS） |
+| 存储 | Parquet 按 dt 分区（本地 / HDFS 均可）、MySQL（建表脚本） |
+| 计算 | Spark 4.2 / PySpark |
+| 建模 | Spark MLlib（ALS）、pandas、NumPy |
 | 服务 | Flask |
-| 前端 | Vue3 + Element Plus + ECharts |
-| 部署 | Docker / Docker Compose，Linux 单机伪分布式 |
+| 前端 | HTML + ECharts |
+| 部署 | Windows 本地单机（`local[4]`），Docker 方案见 `docker/` |
 
 ## 系统架构
 
 ```mermaid
 flowchart LR
-    A[行为日志 / 商品 / 用户数据] --> B[HDFS 原始层]
-    B --> C[PySpark 清洗与特征工程]
-    C --> D[Hive 明细层<br/>按日分区]
-    D --> E[画像与统计作业]
-    D --> F[推荐训练作业<br/>ItemCF / ALS]
-    E --> G[(MySQL 结果表)]
-    F --> G
-    G --> H[Flask 服务层]
-    H --> I[Vue3 管理端]
-    H --> J[ECharts 可视化大屏]
+    A[行为日志] --> B[PySpark 清洗与特征工程]
+    B --> C[按 dt 分区的 Parquet 明细层]
+    C --> D[画像与统计作业]
+    C --> E[推荐训练作业<br/>ItemCF / ALS]
+    D --> F[(用户标签)]
+    E --> G[(推荐结果)]
+    F --> H[Flask 服务层]
+    G --> H
+    H --> I[ECharts 可视化大屏]
 ```
 
-离线与在线分离：耗时计算全部离线完成，推荐结果预计算入库，在线接口只做查询。
+离线与在线分离：耗时计算全部离线完成，推荐结果预计算落盘，在线接口只做查询。
+（`sql/` 下的 Hive / MySQL 建表脚本对应论文 4.3 节的库表设计，本地实验以 Parquet 为准。）
 
 ## 快速开始
 
 ### 环境要求
 
-- JDK 8 / 11、Python 3.10+
-- Hadoop 3.3.x、Hive 3.1.x、Spark 3.5.x、MySQL 8.0
-- 内存 16GB 以上（单机伪分布式）
+- JDK 17、Python 3.10+（实测 Python 3.13 + pyspark 4.2）
+- 本地运行只需 `pip install pyspark pandas pyarrow flask`，不需要 Hadoop/Hive 集群
+- 内存 8GB 以上（200 万条数据、`local[4]`）
+- 可选：Hadoop 3.3.x + Hive 3.1.x（若要跑 `sql/hive_ddl.sql` 的建表脚本）
 
 ### 步骤
 
@@ -145,15 +146,17 @@ curl http://127.0.0.1:8000/api/stats
 
 ```
 .
-├── docker/            # Docker Compose 与集群配置
+├── docker/            # Docker Compose 与集群配置（规划）
 ├── sql/               # Hive / MySQL 建表脚本
-├── spark_jobs/        # PySpark 作业（清洗、画像、训练）
-├── eval/              # 离线评测脚本与结果
+├── spark_jobs/        # PySpark 作业（clean / user_profile / itemcf / als）
+├── tools/             # 数据集抽样工具
 ├── server/            # Flask 服务层
-├── web/               # Vue3 前端
+├── web/               # ECharts 大屏（单页）
 ├── data/              # 数据说明与小样本（原始数据不入库）
-├── docs/              # 设计文档、架构图、实验记录
-└── screenshots/       # 系统截图
+├── docs/              # 系统实现与实验报告
+├── screenshots/       # 系统截图
+├── run_job.ps1        # 一键运行离线作业
+└── run_server.ps1     # 一键启动服务
 ```
 
 ## 开发进度
@@ -163,10 +166,12 @@ curl http://127.0.0.1:8000/api/stats
 - [x] PySpark 数据清洗作业
 - [x] 用户画像标签计算（活跃度 / 品类偏好 / 购买倾向 / 生命周期）
 - [x] ItemCF 召回与离线评测（Recall@10 / NDCG@10 / Coverage）
-- [x] ALS 训练与参数实验（rank 10/50/100，最优 rank=50）
+- [x] ALS 训练与参数实验（rank 10/50/100，最优 rank=100）
 - [x] Flask 推荐接口（推荐 / 画像 / 统计）
-- [ ] Vue3 管理端与可视化大屏
-- [ ] 性能测试与论文数据替换
+- [x] ECharts 可视化大屏
+- [ ] 补跑 ALS rank=200，定位维度拐点
+- [ ] 结果落 MySQL（建表脚本已就绪）
+- [ ] 接口性能压测
 
 ## 数据说明
 
