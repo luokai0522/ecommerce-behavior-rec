@@ -37,6 +37,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--top-n", type=int, default=10, help="每个用户写入的推荐条数")
     p.add_argument("--batch", type=int, default=5000, help="单批插入行数")
     p.add_argument("--dry-run", action="store_true", help="不连数据库，只统计待写入数据")
+    p.add_argument(
+        "--sqlite",
+        default=None,
+        help="写入 SQLite 文件而不是 MySQL（用于本地验证 ETL 逻辑，schema 相同）",
+    )
     return p.parse_args(argv)
 
 
@@ -118,6 +123,77 @@ def insert_batches(cursor, sql: str, rows: list[tuple], batch: int) -> int:
     return total
 
 
+SQLITE_DDL = {
+    "recommend_result": """
+        CREATE TABLE recommend_result (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            item_ids TEXT NOT NULL,
+            scores TEXT,
+            algorithm TEXT NOT NULL,
+            gen_date TEXT NOT NULL
+        )
+    """,
+    "user_tag": """
+        CREATE TABLE user_tag (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            tag_type TEXT NOT NULL,
+            tag_value TEXT NOT NULL,
+            weight REAL DEFAULT 1.0,
+            update_date TEXT NOT NULL
+        )
+    """,
+}
+
+
+def export_sqlite(args: argparse.Namespace, rec_rows: list[tuple], tag_rows: list[tuple]) -> int:
+    """写入 SQLite：不需要装数据库服务，用于本地验证 ETL 与表结构。"""
+    import sqlite3
+
+    path = Path(args.sqlite)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        path.unlink()
+
+    conn = sqlite3.connect(str(path))
+    try:
+        cur = conn.cursor()
+        for ddl in SQLITE_DDL.values():
+            cur.execute(ddl)
+
+        cur.executemany(
+            "INSERT INTO recommend_result (user_id, item_ids, scores, algorithm, gen_date) "
+            "VALUES (?, ?, ?, ?, ?)",
+            rec_rows,
+        )
+        for i in range(0, len(tag_rows), args.batch):
+            cur.executemany(
+                "INSERT INTO user_tag (user_id, tag_type, tag_value, weight, update_date) "
+                "VALUES (?, ?, ?, ?, ?)",
+                tag_rows[i : i + args.batch],
+            )
+        conn.commit()
+
+        n1 = cur.execute("SELECT COUNT(*) FROM recommend_result").fetchone()[0]
+        n2 = cur.execute("SELECT COUNT(*) FROM user_tag").fetchone()[0]
+        top = cur.execute(
+            "SELECT tag_type, tag_value, COUNT(*) c FROM user_tag "
+            "WHERE tag_type='活跃度' GROUP BY tag_type, tag_value ORDER BY c DESC"
+        ).fetchall()
+
+        print(f"[export] SQLite 写入完成: {path}")
+        print(f"[export]   recommend_result {n1:,} 行，user_tag {n2:,} 行")
+        print("[export]   活跃度分布校验:", ", ".join(f"{v}={c:,}" for _, v, c in top))
+    except Exception as exc:  # noqa: BLE001
+        conn.rollback()
+        print(f"[export] SQLite 写入失败: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        conn.close()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
@@ -139,6 +215,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         print("[export] dry-run 结束，未连接数据库")
         return 0
+
+    if args.sqlite:
+        return export_sqlite(args, rec_rows, tag_rows)
 
     try:
         import pymysql
