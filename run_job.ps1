@@ -4,6 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job clean
 #   powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job clean -DataFile data\raw\sample_2m.csv
 #   powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job profile
+#   powershell -ExecutionPolicy Bypass -File .\run_job.ps1 -Job als -Ranks 10,50,100,200
 #
 # Notes:
 #  * Output goes outside the project (DSH workspace ACL blocks chmod),
@@ -12,7 +13,8 @@
 
 param(
     [string]$Job = "clean",
-    [string]$DataFile = ""
+    [string]$DataFile = "",
+    [string]$Ranks = "10,50,100"
 )
 
 $ErrorActionPreference = "Continue"
@@ -79,7 +81,7 @@ switch ($Job) {
         $script  = Join-Path $root "spark_jobs\als.py"
         $args2   = @("--input", (Join-Path $root "data\processed\ods"),
                      "--output", (Join-Path $outRoot "recs_als"),
-                     "--ranks", "10,50,100",
+                     "--ranks", $Ranks,
                      "--eval-users", "2000")
         $dest    = Join-Path $root "data\processed\recs_als"
     }
