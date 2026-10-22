@@ -173,23 +173,32 @@ def profile(user_id: int):
     )
 
 
+_stats_cache: dict | None = None
+
+
 @app.get("/api/stats")
 def stats():
+    """统计接口：结果只依赖离线数据，首次计算后缓存，避免每次请求都扫全量标签表。"""
+    global _stats_cache
+    if _stats_cache is not None:
+        return jsonify(_stats_cache)
+
     recs = load_recs()
     tags = load_tags()
 
     tag_dist: dict[str, dict[str, int]] = {}
-    for (ttype, tvalue), grp in tags.groupby(["tag_type", "tag_value"]):
-        tag_dist.setdefault(str(ttype), {})[str(tvalue)] = int(len(grp))
+    # 一次 groupby 拿到全部计数，比逐组遍历快一个数量级
+    counts = tags.groupby(["tag_type", "tag_value"]).size()
+    for (ttype, tvalue), n in counts.items():
+        tag_dist.setdefault(str(ttype), {})[str(tvalue)] = int(n)
 
-    return jsonify(
-        {
-            "users_with_recs": len(recs),
-            "total_rec_items": int(sum(len(v) for v in recs.values())),
-            "tag_records": int(len(tags)),
-            "tag_distribution": tag_dist,
-        }
-    )
+    _stats_cache = {
+        "users_with_recs": len(recs),
+        "total_rec_items": int(sum(len(v) for v in recs.values())),
+        "tag_records": int(len(tags)),
+        "tag_distribution": tag_dist,
+    }
+    return jsonify(_stats_cache)
 
 
 if __name__ == "__main__":
