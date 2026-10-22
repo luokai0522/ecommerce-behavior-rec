@@ -55,8 +55,15 @@ switch ($Job) {
                      "--output", (Join-Path $outRoot "user_tag"))
         $dest    = Join-Path $root "data\processed\user_tag"
     }
+    "itemcf" {
+        $script  = Join-Path $root "spark_jobs\itemcf.py"
+        $args2   = @("--input", (Join-Path $root "data\processed\ods"),
+                     "--output", (Join-Path $outRoot "recs_itemcf"),
+                     "--eval-users", "2000")
+        $dest    = Join-Path $root "data\processed\recs_itemcf"
+    }
     default {
-        Write-Host "[ERROR] unknown job: $Job (use clean|profile)" -ForegroundColor Red
+        Write-Host "[ERROR] unknown job: $Job (use clean|profile|itemcf)" -ForegroundColor Red
         exit 1
     }
 }
@@ -75,7 +82,7 @@ $code = $LASTEXITCODE
 
 Write-Host ""
 Write-Host "---- exit code: $code ----"
-Get-Content $logFile -Encoding utf8 | Where-Object { $_ -match "^\[(clean|profile)\]" }
+Get-Content $logFile -Encoding utf8 | Where-Object { $_ -match "^\[(clean|profile|itemcf)\]|^\[热门基线\]|^  【|^    - " }
 
 if ($code -eq 0) {
     Write-Host ""
