@@ -170,6 +170,7 @@ const METRICS = [
   { name: "ALS rank=10", recall: 0.0008, ndcg: 0.0005 },
   { name: "ALS rank=50", recall: 0.0039, ndcg: 0.0022 },
   { name: "ALS rank=100", recall: 0.0047, ndcg: 0.0031 },
+  { name: "ALS rank=200", recall: 0.0055, ndcg: 0.0031 },
 ];
 
 function renderMetrics() {
@@ -196,7 +197,7 @@ function renderMetrics() {
         name: "Recall@10",
         type: "bar",
         data: METRICS.map((m) => m.recall),
-        barWidth: "26%",
+        barWidth: "22%",
         itemStyle: {
           borderRadius: [4, 4, 0, 0],
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
