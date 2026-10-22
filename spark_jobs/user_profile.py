@@ -46,22 +46,27 @@ def build_spark(shuffle_partitions: int) -> SparkSession:
 
 
 def tag_activity(df: DataFrame) -> DataFrame:
-    """活跃度：按行为次数四分位切分。"""
+    """活跃度：按行为次数分档。
+
+    不用分位切分：真实数据里用户行为次数高度离散（中位数 2、最大 18），
+    分位数会退化成同一档（q25=q50=q80=2），导致"沉默"用户被并入高活跃。
+    这里改用固定阈值，阈值按数据分布设定（p90≈5）。
+    """
+    HIGH, MID, LOW = 5, 3, 2
     cnt = df.groupBy("user_id").agg(F.count("*").alias("cnt"))
-    q1, q2, q3 = cnt.approxQuantile("cnt", [0.25, 0.50, 0.80], 0.01)
     return (
         cnt.withColumn(
             "tag_value",
-            F.when(F.col("cnt") >= q3, "高活跃")
-            .when(F.col("cnt") >= q2, "中活跃")
-            .when(F.col("cnt") >= q1, "低活跃")
+            F.when(F.col("cnt") >= HIGH, "高活跃")
+            .when(F.col("cnt") >= MID, "中活跃")
+            .when(F.col("cnt") >= LOW, "低活跃")
             .otherwise("沉默"),
         )
         .select(
             "user_id",
             F.lit("活跃度").alias("tag_type"),
             F.col("tag_value"),
-            F.round(F.col("cnt") / F.lit(max(q3, 1.0)), 4).alias("weight"),
+            F.round(F.col("cnt") / F.lit(float(HIGH)), 4).alias("weight"),
         )
     )
 

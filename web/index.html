@@ -118,7 +118,7 @@
 </section>
 
 <section class="card" style="margin-bottom:16px">
-  <div class="panel-title">算法效果对比（Recall@10）<small>来自离线评测 · 合成样本 12 万条</small></div>
+  <div class="panel-title">算法效果对比（Recall@10）<small>来自离线评测 · 天池真实数据 200 万条</small></div>
   <div class="chart-wide" id="chart-metrics"></div>
 </section>
 
@@ -163,13 +163,13 @@ function initCharts() {
   });
 }
 
-// 离线评测实测值（run_job.ps1 -Job itemcf / als 的输出）
+// 离线评测实测值（run_job.ps1 -Job itemcf / als 的输出，真实数据）
 const METRICS = [
-  { name: "热门榜基线", recall: 0.0038, ndcg: 0.0025 },
-  { name: "ItemCF", recall: 0.0267, ndcg: 0.0121 },
-  { name: "ALS rank=10", recall: 0.0434, ndcg: 0.0191 },
-  { name: "ALS rank=50", recall: 0.0539, ndcg: 0.0231 },
-  { name: "ALS rank=100", recall: 0.0506, ndcg: 0.0216 },
+  { name: "热门榜基线", recall: 0.0016, ndcg: 0.0006 },
+  { name: "ItemCF", recall: 0.0024, ndcg: 0.0018 },
+  { name: "ALS rank=10", recall: 0.0008, ndcg: 0.0005 },
+  { name: "ALS rank=50", recall: 0.0039, ndcg: 0.0022 },
+  { name: "ALS rank=100", recall: 0.0047, ndcg: 0.0031 },
 ];
 
 function renderMetrics() {
