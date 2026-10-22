@@ -159,7 +159,9 @@ def evaluate(
         .agg(F.collect_set("item_id").alias("items"))
         .withColumn("n_true", F.size("items"))
     )
-    pool = truth.orderBy("user_id").limit(eval_users).cache()
+    # 随机抽取评测用户（固定种子保证可复现）；不能按 user_id 升序取前 N，
+    # 那样只会覆盖注册最早的一批用户，评测集有系统偏差
+    pool = truth.orderBy(F.rand(42)).limit(eval_users).cache()
     joined = pool.join(
         recs.groupBy("user_id").agg(F.collect_list(F.struct("rank", "item_id")).alias("recs")),
         "user_id",
